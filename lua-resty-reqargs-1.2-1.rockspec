@@ -1,16 +1,16 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "lua-resty-reqargs"
-version = "1.1-1"
+version = "1.2-1"
 -- LuaDist source
 source = {
-  tag = "1.1-1",
+  tag = "1.2-1",
   url = "git://github.com/LuaDist-testing/lua-resty-reqargs.git"
 }
 -- Original source
 -- source = {
 --     url = "git://github.com/bungle/lua-resty-reqargs.git",
---     branch = "v1.1"
+--     branch = "v1.2"
 -- }
 description = {
     summary = "Helper to Retrieve HTTP Request Arguments and File Uploads",
