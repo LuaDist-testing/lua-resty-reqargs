@@ -1,20 +1,43 @@
-local upload  = require "resty.upload"
-local decode  = require "cjson.safe".decode
-local tmpname = os.tmpname
-local concat  = table.concat
-local type    = type
-local find    = string.find
-local open    = io.open
-local sub     = string.sub
-local ngx     = ngx
-local req     = ngx.req
-local var     = ngx.var
-local body    = req.read_body
-local data    = req.get_body_data
-local pargs   = req.get_post_args
-local uargs   = req.get_uri_args
+local upload   = require "resty.upload"
+local decode   = require "cjson.safe".decode
+local tonumber = tonumber
+local tmpname  = os.tmpname
+local concat   = table.concat
+local type     = type
+local find     = string.find
+local open     = io.open
+local sub      = string.sub
+local sep      = sub(package.config, 1, 1) or "/"
+local ngx      = ngx
+local req      = ngx.req
+local var      = ngx.var
+local body     = req.read_body
+local file     = ngx.req.get_body_file
+local data     = req.get_body_data
+local pargs    = req.get_post_args
+local uargs    = req.get_uri_args
 
-local function rightmost(s, sep)
+local defaults = {
+    tmp_dir          = var.reqargs_tmp_dir,
+    timeout          = tonumber(var.reqargs_timeout)       or 1000,
+    chunk_size       = tonumber(var.reqargs_chunk_size)    or 4096,
+    max_get_args     = tonumber(var.reqargs_max_get_args)  or 100,
+    max_post_args    = tonumber(var.reqargs_max_post_args) or 100,
+    max_line_size    = tonumber(var.reqargs_max_line_size),
+    max_file_uploads = tonumber(var.reqargs_max_file_uploads)
+}
+
+local function read(f)
+    local f, e = open(f, "rb")
+    if not f then
+        return nil, e
+    end
+    local c = f:read "*a"
+    f:close()
+    return c
+end
+
+local function basename(s)
     local p = 1
     local i = find(s, sep, 1, true)
     while i do
@@ -25,10 +48,6 @@ local function rightmost(s, sep)
         s = sub(s, p)
     end
     return s
-end
-
-local function basename(s)
-    return rightmost(rightmost(s, "\\"), "/")
 end
 
 local function kv(r, s)
@@ -58,20 +77,24 @@ local function parse(s)
 end
 
 return function(options)
-    local get = uargs()
+    local get = uargs(options.max_get_args or defaults.max_get_args)
     local post = {}
     local files = {}
     local ct = var.content_type
     if ct == nil then return get, post, files end
     if sub(ct, 1, 19) == "multipart/form-data" then
-        local maxfz = options.max_fsize
-        local maxfs = options.max_files
-        local chunk = options.chunk_size or 8192
-        local form, e = upload:new(chunk)
+        local tmpdr = options.tmp_dir or defaults.tmp_dir
+        if tmpdr and sub(tmpdr, -1) ~= sep then
+            tmpdr = tmpdr .. sep
+        end
+        local maxfz = options.max_file_size    or defaults.max_file_size
+        local maxfs = options.max_file_uploads or defaults.max_file_uploads
+        local chunk = options.chunk_size       or defaults.chunk_size
+        local form, e = upload:new(chunk, options.max_line_size or defaults.max_line_size)
         if not form then return nil, e end
         local h, p, f, o, s
         local u = 0
-        form:set_timeout(options.timeout or 1000)
+        form:set_timeout(options.timeout or defaults.timeout)
         while true do
             local t, r, e = form:read()
             if not t then return nil, e end
@@ -93,7 +116,7 @@ return function(options)
                                 name = d.name,
                                 type = h["Content-Type"] and h["Content-Type"][1],
                                 file = basename(d.filename),
-                                temp = tmpname()
+                                temp = tmpdr and (tmpdr .. basename(tmpname())) or tmpname()
                             }
                             o, e = open(f.temp, "w+b")
                             if not o then return nil, e end
@@ -108,14 +131,19 @@ return function(options)
                     if maxfz then
                         s = s + #r
                         if maxfz < s then
+                            o:close()
                             return nil, "The maximum size of an uploaded file exceeded."
                         end
                     end
                     if maxfs and maxfs < u + 1 then
+                        o:close()
                         return nil, "The maximum number of files allowed to be uploaded simultaneously exceeded."
                     end
                     local ok, e = o:write(r)
-                    if not ok then return nil, e end
+                    if not ok then
+                        o:close()
+                        return nil, e
+                    end
                 elseif p then
                     local n = p.data.n
                     p.data[n] = r
@@ -166,10 +194,21 @@ return function(options)
         if not t then return nil, e end
     elseif sub(ct, 1, 16) == "application/json" then
         body()
-        post = decode(data()) or {}
+        local j = data()
+        if j == nil then
+            local f = file()
+            if f ~= nil then
+                j = read(f)
+                if j then
+                    post = decode(j) or {}
+                end
+            end
+        else
+            post = decode(j) or {}
+        end
     else
         body()
-        post = pargs()
+        post = pargs(options.max_post_args or defaults.max_post_args)
     end
     return get, post, files
 end
