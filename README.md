@@ -37,23 +37,23 @@ LuaRocks repository for `lua-resty-reqargs` is located at https://luarocks.org/m
 This module has only one function, and that function is loaded with require:
 
 ```lua
-local reqargs = require "reqargs"
+local reqargs = require "resty.reqargs"
 ```
 
 ### get, post, files regargs(options)
 
-When you caa the function (`reqargs`) you can pass it options. These
+When you call the function (`reqargs`) you can pass it `options`. These
 options override whatever you may have defined in your Nginx configuration
 (or the defaults). You may use the following options:
 
 ```lua
 {
-    tmp_dir = "/tmp",
-    timeout = 1000,
-    chunk_size = 4096,
-    max_get_args = 100,
-    mas_post_args = 100,
-    max_line_size = 512,
+    tmp_dir          = "/tmp",
+    timeout          = 1000,
+    chunk_size       = 4096,
+    max_get_args     = 100,
+    mas_post_args    = 100,
+    max_line_size    = 512,
     max_file_uploads = 10
 }
 ```
@@ -84,7 +84,7 @@ are presented as a Lua tables, that look like this (think about PHP's `$_FILES`)
     -- The file size of the uploaded file (in bytes)
     size = 123465
     -- The location where the uploaded file was streamed
-    temp = '/tmp/????'
+    temp = "/tmp/????"
 }
 ```
 
@@ -97,16 +97,21 @@ the Nginx configuration, here are the configuration values that you may
 use, and their default values:
 
 ```nginx
-set $reqargs_tmp_dir           /tmp; # the default is the system temp dir
-set $reqargs_timeout           1000; # see https://github.com/openresty/lua-resty-upload
-set $reqargs_chunk_size        4096; # see https://github.com/openresty/lua-resty-upload
-set $reqargs_max_get_args      100;  
+# the default is the system temp dir
+set $reqargs_tmp_dir           /tmp;
+# see https://github.com/openresty/lua-resty-upload
+set $reqargs_timeout           1000;
+# see https://github.com/openresty/lua-resty-upload
+set $reqargs_chunk_size        4096;
+# see https://github.com/openresty/lua-nginx-module#ngxreqget_uri_args
+set $reqargs_max_get_args      100;
+# see https://github.com/openresty/lua-nginx-module#ngxreqget_post_args
 set $reqargs_max_post_args     100;
-set $reqargs_max_line_size     512;  # see https://github.com/openresty/lua-resty-upload
-set $reqargs_max_file_uploads  10;   # the default is unlimited
+# see https://github.com/openresty/lua-resty-upload
+set $reqargs_max_line_size     512;  
+# the default is unlimited
+set $reqargs_max_file_uploads  10;
 ```
-
-If the limits exceed, the only function in this modile will return nil, ´error`.
 
 ## Changes
 
@@ -117,7 +122,7 @@ The changes of every release of this module is recorded in [Changes.md](https://
 `lua-resty-reqargs` uses two clause BSD license.
 
 ```
-Copyright (c) 2015 - 2016, Aapo Talvensaari
+Copyright (c) 2015 - 2017, Aapo Talvensaari
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
